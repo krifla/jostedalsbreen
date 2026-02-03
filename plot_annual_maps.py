@@ -1,1 +1,0 @@
-../plot_annual_maps.py
