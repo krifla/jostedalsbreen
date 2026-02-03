@@ -1,1 +1,0 @@
-../weighted4pts.py
