@@ -631,6 +631,241 @@ def defineTempData(years=years, season='SONDJFMAM', #months=months, start=start,
 
 
 
+'''
+load WRF time series
+'''
+
+# loading time series
+inpath = 'data/output_subsets/timeseries'
+#experiments = ['glac2019', 'noice_BT']#noice_dtm50']#glac2100_dem2100']#
+#experiments = [exp1, exp2]
+
+def loadModelTemperatureTimeseries(experiments = [exp1, exp2]):
+    
+    # load temperature time series 
+    t2m_1pt = {}
+    t2m_4pts = {}
+    for exp in experiments:
+        dataframes_1pt = []
+        dataframes_4pts = []
+        for year in range(2007, 2023):#18):
+            df = pd.read_csv(f'{inpath}/temp/T2_1pt_{year}_{exp}.csv')
+            dataframes_1pt.append(df)
+            #df = pd.read_csv(f'{inpath}/temp/T2_4pts_{year}_{exp}.csv')
+            #dataframes_4pts.append(df)
+    
+        t2m_1pt[exp] = pd.concat(dataframes_1pt, ignore_index=True)
+        #t2m_4pts[exp] = pd.concat(dataframes_4pts, ignore_index=True)
+    
+        t2m_1pt[exp]['date'] = pd.to_datetime(t2m_1pt[exp]['date'])
+        
+        
+        
+    # create monthly mean
+    t2m_1pt_monthly = {}
+    t2m_4pts_monthly = {}
+
+    for exp in experiments:
+        t2m_1pt[exp]['date'] = pd.to_datetime(t2m_1pt[exp]['date'])
+        t2m_1pt_monthly[exp] = t2m_1pt[exp].groupby(pd.Grouper(key='date', freq='ME')).mean().reset_index()#drop=True)
+        t2m_1pt_monthly[exp]['date'] -= pd.offsets.MonthBegin() # let date for each month reflect first date of given month
+
+        # t2m_4pts[exp]['date'] = pd.to_datetime(t2m_4pts[exp]['date'])
+        # t2m_4pts_monthly[exp] = t2m_4pts[exp].groupby(pd.Grouper(key='date', freq='M')).mean().reset_index()#drop=True)
+        # t2m_4pts_monthly[exp]['date'] -= pd.offsets.MonthBegin() # let date for each month reflect first date of given month
+
+
+    # collect all observed monthly mean temperature in one df
+    t2m_monthly_obs = pd.DataFrame()
+    t2m_monthly_obs['date'] = t2m_1pt_monthly[exp]['date']
+    for st in ['FB', 'OV', 'LV']:#, 'AS']:
+        mask = nve_monthly['station_id'] == st
+        met_data = nve_monthly[mask][['date', 't']].copy()
+        t2m_monthly_obs = t2m_monthly_obs.merge(met_data, on='date', how='left')
+        t2m_monthly_obs.rename(columns={'t': st}, inplace=True)
+    for st in ['MG', 'JD', 'FL']:
+        mask = MET_monthly['station'] == st
+        met_data = MET_monthly[mask][['date', 'temp']].copy()
+        t2m_monthly_obs = t2m_monthly_obs.merge(met_data.reset_index(drop=True), on='date', how='left')
+        t2m_monthly_obs.rename(columns={'temp': st}, inplace=True)
+    for st in ['NB']:
+        met_data = NB_monthly[['date', 't']].copy()
+        t2m_monthly_obs = t2m_monthly_obs.merge(met_data, on='date', how='left')
+        t2m_monthly_obs.rename(columns={'t': st}, inplace=True)
+        
+    return (t2m_1pt, t2m_1pt_monthly, t2m_monthly_obs)
+
+# def loadModelPrecipitationTimeseries():
+
+#     # load precip
+
+#     c = plt.color_sequences["tab10"]
+#     years = range(2007, 2023)
+
+#     prec_1pt = {}
+#     prec_4pts = {}
+#     for exp in experiments:
+#         dataframes_1pt = []
+#         dataframes_4pts = []
+#         for year in years:
+#             df = pd.read_csv(f'{inpath}/precip/RAINNC_1pt_{year}_{exp}.csv')
+#             dataframes_1pt.append(df)
+#             df = pd.read_csv(f'{inpath}/precip/RAINNC_4pts_{year}_{exp}.csv')
+#             dataframes_4pts.append(df)
+
+#         prec_1pt[exp] = pd.concat(dataframes_1pt, ignore_index=True)
+#         prec_4pts[exp] = pd.concat(dataframes_4pts, ignore_index=True)
+        
+#     for exp in experiments:
+#         prec_1pt[exp]['date'] = pd.to_datetime(prec_1pt[exp]['date'])
+#         prec_4pts[exp]['date'] = pd.to_datetime(prec_4pts[exp]['date'])
+
+def loadModelPrecipWindTimeseries(experiments = [exp1, exp2]):
+
+    # load wind and precip timeseries
+
+    # inpath = 'data/output_subsets/timeseries'
+    # experiments = ['glac2019','noice_BT']#noice_dtm50']#glac2100_dem2100']#
+    # experiments = [exp1, exp2]
+
+    precip_1pt = {}
+    #snow_1pt = {}
+    ws_1pt = {}
+    wd_1pt = {}
+
+    for exp in experiments:
+        for var in ['WS', 'WD']:
+            dataframes_1pt = []
+            #dataframes_4pts = []
+            for year in range(2007, 2023):
+                df = pd.read_csv(f'{inpath}/wind/{var}_1pt_{year}_{exp}.csv')
+                # if exp == exp1 and var == 'WS' and year == 2007:
+                #     print (df.columns)
+                df['date'] = pd.to_datetime(df['date'])
+                dataframes_1pt.append(df)
+                #df = pd.read_csv(f'{inpath}/wind/{var}_4pts_2006_{exp}.csv')
+                #df['date'] = pd.to_datetime(df['date'])
+                #dataframes_4pts.append(df)
+            if var == 'WS':
+                ws_1pt[exp] = pd.concat(dataframes_1pt, ignore_index=True)
+                #ws_4pts = pd.concat(dataframes_4pts, ignore_index=True)
+            elif var == 'WD':
+                wd_1pt[exp] = pd.concat(dataframes_1pt, ignore_index=True)
+                #wd_4pts = pd.concat(dataframes_4pts, ignore_index=True)
+        for var in ['RAINNC']:
+            dataframes_1pt = []
+            #dataframes_4pts = []
+            for year in range(2007, 2023):
+                df = pd.read_csv(f'{inpath}/precip/{var}_1pt_{year}_{exp}.csv')
+                df = df[['date', 'MG', 'FL', 'OD', 'VS', 'SJ', 'PEAK']]
+                #df[['date', 'MG', 'FL', 'OD', 'VS', 'SJ', 'PEAK']].to_csv(f'{inpath}/precip/{var}_1pt_{year}_{exp}.csv')
+                df['date'] = pd.to_datetime(df['date'])
+                dataframes_1pt.append(df)
+            precip_1pt[exp] = pd.concat(dataframes_1pt, ignore_index=True)
+          
+        ws_1pt[exp]['year'] = ws_1pt[exp]['date'].dt.year
+        ws_1pt[exp]['month'] = ws_1pt[exp]['date'].dt.month
+        ws_1pt[exp]['day'] = ws_1pt[exp]['date'].dt.day
+
+    return (precip_1pt, ws_1pt, wd_1pt)
 
 
 
+def defineDailyData(exp1=exp1, exp2=exp2):
+
+    t2m_daily = t2m_1pt[exp1].groupby(pd.Grouper(key='date', freq='D')).mean().reset_index()
+    #precip_daily = precip_1pt.groupby(pd.Grouper(key='date', freq='D')).mean().reset_index()
+    
+    precip_daily = precip_1pt[exp1].copy()
+    precip_daily.set_index('date', inplace=True)
+    precip_daily = precip_daily[precip_daily.index.hour == 6]
+    
+    for col in precip_daily.columns:
+        precip_daily[col] = precip_daily[col].diff()
+        
+    precip_daily = precip_daily.where((precip_daily >= 0) & (precip_daily <= 140)) # remove a very few outliers that are probably related to restart
+    
+    precip_daily = precip_daily.reset_index()
+    
+    for key in regimes_daily.keys():
+        date = datetime.datetime(int(key[:4]), int(key[5:7]), int(key[8:10]))
+        t2m_daily.loc[t2m_daily['date'] == date, 'class'] = regimes_daily[key]
+        precip_daily.loc[precip_daily['date']-pd.Timedelta(hours=6) == date, 'class'] = regimes_daily[key]
+    
+    t2m_exp2_daily = t2m_1pt[exp2].groupby(pd.Grouper(key='date', freq='D')).mean().reset_index()
+    
+    precip_exp2_daily = precip_1pt[exp2].copy()
+    precip_exp2_daily.set_index('date', inplace=True)
+    precip_exp2_daily = precip_exp2_daily[precip_exp2_daily.index.hour == 6]
+    
+    for col in precip_exp2_daily.columns:
+        precip_exp2_daily[col] = precip_exp2_daily[col].diff()
+        
+    precip_exp2_daily = precip_exp2_daily.where((precip_exp2_daily >= 0) & (precip_exp2_daily <= 140)) # remove a very few outliers that are probably related to restart
+    
+    precip_exp2_daily = precip_exp2_daily.reset_index()
+    
+    for key in regimes_daily.keys():
+        date = datetime.datetime(int(key[:4]), int(key[5:7]), int(key[8:10]))
+        t2m_exp2_daily.loc[t2m_exp2_daily['date'] == date, 'class'] = regimes_daily[key]
+        precip_exp2_daily.loc[precip_exp2_daily['date']-pd.Timedelta(hours=6) == date, 'class'] = regimes_daily[key]
+        
+        
+    # shift precip data to the day before for best match with wind class
+    
+    precip_daily.iloc[:, 1:-1] = precip_daily.iloc[:, 1:-1].shift(-1)
+    precip_exp2_daily.iloc[:, 1:-1] = precip_exp2_daily.iloc[:, 1:-1].shift(-1)
+
+        
+    return (t2m_daily, precip_daily, t2m_exp2_daily, precip_exp2_daily)
+    
+
+def createSeasonSubset(summer = False, winter = False):
+
+    if summer == True:
+        winter = False
+        ws_1pt[exp1] = ws_1pt[exp1][ws_1pt['date'].dt.month.isin([6,7,8])]
+        wd_1pt[exp1] = wd_1pt[exp1][wd_1pt['date'].dt.month.isin([6,7,8])]
+        nve_hourly = nve_hourly[(nve_hourly['date'].dt.month.isin([6,7,8]))]
+        MET_hourly = MET_hourly[(MET_hourly['date'].dt.month.isin([6,7,8]))]
+        NB_hourly = NB_hourly[(NB_hourly['date'].dt.month.isin([6,7,8]))]
+        SM = SM[(SM['date'].dt.month.isin([6,7,8]))]
+    elif winter == True:
+        ws_1pt[exp1] = ws_1pt[exp1][ws_1pt['date'].dt.month.isin([12,1,2])]
+        wd_1pt[exp1] = wd_1pt[exp1][wd_1pt['date'].dt.month.isin([12,1,2])]
+        nve_hourly = nve_hourly[(nve_hourly['date'].dt.month.isin([12,1,2]))]
+        MET_hourly = MET_hourly[(MET_hourly['date'].dt.month.isin([12,1,2]))]
+        NB_hourly = NB_hourly[(NB_hourly['date'].dt.month.isin([12,1,2]))]
+        SM = SM[(SM['date'].dt.month.isin([12,1,2]))]
+
+    return (ws_1pt, wd_1pt, nve_hourly, MET_hourly, NB_hourly, SM)
+
+    
+def prepareDataWindRoses():
+    
+    if season == 'all':
+        data = pd.merge(MET_monthly.loc[MET_monthly['station'] == 'OD'], nve_monthly.loc[nve_monthly['station_id'] == 'OV', ['date', 't']], on='date', how='inner')
+    elif season == 'DJF':
+        data = pd.merge(MET_monthly.loc[(MET_monthly['station'] == 'OD')&(MET_monthly['month'].isin([12,1,2]))], nve_monthly.loc[(nve_monthly['station_id'] == 'OV') & (nve_monthly['month'].isin([12,1,2])), ['date', 't']], on='date', how='inner')
+    elif season == 'JJA':
+        data = pd.merge(MET_monthly.loc[(MET_monthly['station'] == 'OD')&(MET_monthly['month'].isin([6,7,8]))], nve_monthly.loc[(nve_monthly['station_id'] == 'OV') & (nve_monthly['month'].isin([6,7,8])), ['date', 't']], on='date', how='inner')
+    data = pd.merge(data, wind[['date', 'class']], on='date', how='inner')
+    
+    
+    
+    for s, st in enumerate(['FB', 'FL', 'AS', 'SB', 'SM', 'NB']):
+    #    ax = axs[s]
+        
+        lon, lat = WRF1000_ts.loc[WRF1000_ts['station_id']==st, 'station_lon'], WRF1000_ts.loc[WRF1000_ts['station_id']==st, 'station_lat']
+        if st == 'FL':
+            data = MET_hourly.loc[(MET_hourly['station_id'] == 'SN55820') & (MET_hourly['date'] >= datetime.datetime(years[0],1,1)) & (MET_hourly['date'] < datetime.datetime(years[-1]+1,1,1)), ['date','ws','wd']]
+        elif st == 'SB':
+            data = MET_hourly.loc[(MET_hourly['station_id'] == 'SN55425') & (MET_hourly['date'] >= datetime.datetime(years[0],1,1)) & (MET_hourly['date'] < datetime.datetime(years[-1]+1,1,1)), ['date','ws','wd']]        
+        elif st == 'NB':
+            data = NB_hourly.loc[(NB_hourly['date'] >= datetime.datetime(years[0],1,1)) & (NB_hourly['date'] < datetime.datetime(years[-1],1,1)), ['date','ws','wd']]
+        elif st == 'SM':
+            data = SM.loc[(SM['date'] >= datetime.datetime(years[0],1,1)) & (SM['date'] < datetime.datetime(years[-1],1,1)), ['date','ws','wd']]
+        else:
+            data = nve_hourly.loc[(nve_hourly['station_id'] == st) & (nve_hourly['date'] >= datetime.datetime(years[0],1,1)) & (nve_hourly['date'] < datetime.datetime(years[-1],1,1)), ['date','ws','wd']]
+    
+    return (data)
